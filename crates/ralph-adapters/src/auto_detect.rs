@@ -10,6 +10,7 @@ use tracing::debug;
 /// Default priority order for backend detection.
 pub const DEFAULT_PRIORITY: &[&str] = &[
     "claude", "kiro", "kiro-acp", "gemini", "codex", "amp", "copilot", "opencode", "pi", "roo",
+    "aider",
 ];
 
 /// Maps backend config names to their actual CLI command names.
@@ -61,6 +62,7 @@ impl std::fmt::Display for NoBackendError {
             "  • Pi CLI:       https://github.com/anthropics/pi-coding-agent"
         )?;
         writeln!(f, "  • Roo CLI:      https://github.com/RooVetGit/Roo-Code")?;
+        writeln!(f, "  • Aider:        https://aider.chat")?;
         Ok(())
     }
 }
@@ -226,9 +228,9 @@ mod tests {
     fn test_default_priority_pi_is_second_to_last() {
         let len = DEFAULT_PRIORITY.len();
         assert_eq!(
-            DEFAULT_PRIORITY[len - 2],
+            DEFAULT_PRIORITY[len - 3],
             "pi",
-            "Pi should be second-to-last in DEFAULT_PRIORITY"
+            "Pi should be third-to-last in DEFAULT_PRIORITY"
         );
     }
 
@@ -243,9 +245,9 @@ mod tests {
     #[test]
     fn test_default_priority_roo_is_last() {
         assert_eq!(
-            DEFAULT_PRIORITY.last(),
-            Some(&"roo"),
-            "Roo should be the last entry in DEFAULT_PRIORITY"
+            DEFAULT_PRIORITY[DEFAULT_PRIORITY.len() - 2],
+            "roo",
+            "Roo should be second-to-last in DEFAULT_PRIORITY (aider is last)"
         );
     }
 
@@ -396,5 +398,36 @@ mod tests {
         if let Ok(backend) = result {
             assert_eq!(backend, "echo");
         }
+    }
+
+    #[test]
+    fn test_default_priority_includes_aider() {
+        assert!(
+            DEFAULT_PRIORITY.contains(&"aider"),
+            "DEFAULT_PRIORITY should include 'aider'"
+        );
+    }
+
+    #[test]
+    fn test_default_priority_aider_is_last() {
+        assert_eq!(
+            DEFAULT_PRIORITY.last(),
+            Some(&"aider"),
+            "Aider should be the last entry in DEFAULT_PRIORITY"
+        );
+    }
+
+    #[test]
+    fn test_detection_command_aider() {
+        assert_eq!(detection_command("aider"), "aider");
+    }
+
+    #[test]
+    fn test_no_backend_error_includes_aider() {
+        let err = NoBackendError {
+            checked: vec!["aider".to_string()],
+        };
+        let msg = format!("{}", err);
+        assert!(msg.contains("aider.chat"), "Error message should include aider install URL");
     }
 }

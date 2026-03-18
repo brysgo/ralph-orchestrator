@@ -374,6 +374,7 @@ fn auth_env_vars(backend: &str) -> Option<Vec<&'static str>> {
             "ANTHROPIC_API_KEY",
             "OPENAI_API_KEY",
         ]),
+        "aider" => Some(vec!["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]),
         _ => None,
     }
 }

@@ -13,6 +13,7 @@ Ralph supports multiple AI CLI backends. This guide covers setup and selection.
 | Amp | `amp` | Sourcegraph |
 | Copilot CLI | `copilot` | GitHub |
 | OpenCode | `opencode` | Community |
+| Aider | `aider` | Community, multi-provider |
 
 ## Auto-Detection
 
@@ -31,6 +32,9 @@ Detection order (first available wins):
 5. Amp
 6. Copilot
 7. OpenCode
+8. Pi
+9. Roo
+10. Aider
 
 ## Explicit Selection
 
@@ -55,7 +59,7 @@ Each backend below includes:
 - **Hat YAML** configuration
 - **`ralph doctor`** validation notes
 
-Backend names (used in YAML and CLI flags): `claude`, `kiro`, `gemini`, `codex`, `amp`, `copilot`, `opencode`.
+Backend names (used in YAML and CLI flags): `claude`, `kiro`, `gemini`, `codex`, `amp`, `copilot`, `opencode`, `pi`, `roo`, `aider`.
 
 ### Claude Code (`claude`)
 
@@ -267,6 +271,34 @@ hats:
 **Doctor checks:**
 - `opencode --version` must succeed
 - Warns if none of `OPENCODE_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` are set
+
+### Aider (`aider`)
+
+Community AI pair-programming CLI supporting many providers.
+
+```bash
+# Install
+pip install aider-install && aider-install
+
+# Verify
+aider --version
+```
+
+**Auth & env vars:**
+- `ANTHROPIC_API_KEY` for Claude models (default)
+- `OPENAI_API_KEY` for OpenAI models
+- See [aider docs](https://aider.chat/docs/config/options.html) for other provider keys
+
+**Hat YAML:**
+```yaml
+hats:
+  coder:
+    backend: "aider"
+```
+
+**Doctor checks:**
+- `aider --version` must succeed
+- Warns if neither `ANTHROPIC_API_KEY` nor `OPENAI_API_KEY` is set
 
 ## Per-Hat Backend Override
 
