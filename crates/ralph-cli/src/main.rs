@@ -29,6 +29,7 @@ mod memory;
 mod preflight;
 mod presets;
 mod rpc_stdin;
+mod service;
 mod skill_cli;
 mod sop_runner;
 mod task_cli;
@@ -612,6 +613,9 @@ enum Commands {
     /// Manage Telegram bot setup and testing
     Bot(bot::BotArgs),
 
+    /// Manage Ralph as an OS-level service (systemd, launchd)
+    Service(service::ServiceArgs),
+
     /// Generate shell completions
     Completions(CompletionsArgs),
 }
@@ -1180,6 +1184,9 @@ async fn main() -> Result<()> {
                 cli.color.should_use_colors(),
             )
             .await
+        }
+        Some(Commands::Service(args)) => {
+            service::execute(args, cli.color.should_use_colors()).await
         }
         Some(Commands::Completions(args)) => completions_command(args),
         None => {
