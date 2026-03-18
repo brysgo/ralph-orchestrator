@@ -77,6 +77,7 @@ impl CliBackend {
             "opencode" => Self::opencode(),
             "pi" => Self::pi(),
             "roo" => Self::roo(),
+            "aider" => Self::aider(),
             "custom" => return Self::custom(config),
             _ => Self::claude(), // Default to claude
         };
@@ -245,6 +246,7 @@ impl CliBackend {
             "opencode" => Ok(Self::opencode()),
             "pi" => Ok(Self::pi()),
             "roo" => Ok(Self::roo()),
+            "aider" => Ok(Self::aider()),
             _ => Err(CustomBackendError),
         }
     }
@@ -398,6 +400,7 @@ impl CliBackend {
             "opencode" => Ok(Self::opencode_interactive()),
             "pi" => Ok(Self::pi_interactive()),
             "roo" => Ok(Self::roo_interactive()),
+            "aider" => Ok(Self::aider_interactive()),
             _ => Err(CustomBackendError),
         }
     }
@@ -602,6 +605,46 @@ impl CliBackend {
         }
     }
 
+    /// Creates the Aider backend for headless execution.
+    ///
+    /// Uses `--message` for non-interactive prompt delivery and `--yes-always`
+    /// to auto-confirm all prompts. `--no-auto-commits` is included so that
+    /// Ralph remains in charge of git; changes are staged but not committed
+    /// by aider itself.
+    ///
+    /// The command built is:
+    /// ```bash
+    /// aider --yes-always --no-auto-commits --message "prompt text here"
+    /// ```
+    pub fn aider() -> Self {
+        Self {
+            command: "aider".to_string(),
+            args: vec![
+                "--yes-always".to_string(),
+                "--no-auto-commits".to_string(),
+            ],
+            prompt_mode: PromptMode::Arg,
+            prompt_flag: Some("--message".to_string()),
+            output_format: OutputFormat::Text,
+            env_vars: vec![],
+        }
+    }
+
+    /// Creates the Aider backend for interactive mode with initial prompt.
+    ///
+    /// Runs aider without `--no-auto-commits`, passing the initial prompt via
+    /// `--message`. Used by `ralph plan` for interactive sessions.
+    pub fn aider_interactive() -> Self {
+        Self {
+            command: "aider".to_string(),
+            args: vec!["--yes-always".to_string()],
+            prompt_mode: PromptMode::Arg,
+            prompt_flag: Some("--message".to_string()),
+            output_format: OutputFormat::Text,
+            env_vars: vec![],
+        }
+    }
+
     /// Creates a custom backend from configuration.
     ///
     /// # Errors
@@ -748,6 +791,10 @@ impl CliBackend {
             "roo" => args
                 .into_iter()
                 .filter(|a| a != "--print" && a != "--ephemeral")
+                .collect(),
+            "aider" => args
+                .into_iter()
+                .filter(|a| a != "--no-auto-commits")
                 .collect(),
             _ => args, // claude, gemini, opencode unchanged
         }
@@ -1695,6 +1742,7 @@ mod tests {
         assert!(CliBackend::opencode().env_vars.is_empty());
         assert!(CliBackend::pi().env_vars.is_empty());
         assert!(CliBackend::roo().env_vars.is_empty());
+        assert!(CliBackend::aider().env_vars.is_empty());
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1865,5 +1913,92 @@ mod tests {
             .read_to_string(&mut content)
             .unwrap();
         assert_eq!(content, prompt);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Tests for Aider backend
+    // ─────────────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_aider_backend() {
+        let backend = CliBackend::aider();
+        let (cmd, args, stdin, _temp) = backend.build_command("test prompt", false);
+
+        assert_eq!(cmd, "aider");
+        assert_eq!(
+            args,
+            vec!["--yes-always", "--no-auto-commits", "--message", "test prompt"]
+        );
+        assert!(stdin.is_none());
+        assert_eq!(backend.output_format, OutputFormat::Text);
+    }
+
+    #[test]
+    fn test_aider_interactive_backend() {
+        let backend = CliBackend::aider_interactive();
+        let (cmd, args, stdin, _temp) = backend.build_command("test prompt", false);
+
+        assert_eq!(cmd, "aider");
+        assert_eq!(args, vec!["--yes-always", "--message", "test prompt"]);
+        assert!(stdin.is_none());
+        assert_eq!(backend.output_format, OutputFormat::Text);
+        assert_eq!(backend.prompt_flag, Some("--message".to_string()));
+    }
+
+    #[test]
+    fn test_aider_interactive_mode_removes_no_auto_commits() {
+        let backend = CliBackend::aider();
+        let (cmd, args, stdin, _temp) = backend.build_command("test prompt", true);
+
+        assert_eq!(cmd, "aider");
+        assert!(
+            !args.contains(&"--no-auto-commits".to_string()),
+            "interactive mode should remove --no-auto-commits"
+        );
+        assert!(args.contains(&"--yes-always".to_string()));
+        assert!(args.contains(&"--message".to_string()));
+        assert!(stdin.is_none());
+    }
+
+    #[test]
+    fn test_from_name_aider() {
+        let backend = CliBackend::from_name("aider").unwrap();
+        assert_eq!(backend.command, "aider");
+        assert_eq!(backend.prompt_flag, Some("--message".to_string()));
+        assert_eq!(backend.output_format, OutputFormat::Text);
+    }
+
+    #[test]
+    fn test_from_config_aider() {
+        let config = CliConfig {
+            backend: "aider".to_string(),
+            command: None,
+            prompt_mode: "arg".to_string(),
+            ..Default::default()
+        };
+        let backend = CliBackend::from_config(&config).unwrap();
+
+        assert_eq!(backend.command, "aider");
+        assert_eq!(backend.output_format, OutputFormat::Text);
+        assert!(backend.args.contains(&"--yes-always".to_string()));
+        assert!(backend.args.contains(&"--no-auto-commits".to_string()));
+    }
+
+    #[test]
+    fn test_for_interactive_prompt_aider() {
+        let backend = CliBackend::for_interactive_prompt("aider").unwrap();
+        let (cmd, args, stdin, _temp) = backend.build_command("test prompt", false);
+
+        assert_eq!(cmd, "aider");
+        assert_eq!(args, vec!["--yes-always", "--message", "test prompt"]);
+        assert!(!args.contains(&"--no-auto-commits".to_string()));
+        assert!(stdin.is_none());
+        assert_eq!(backend.output_format, OutputFormat::Text);
+    }
+
+    #[test]
+    fn test_aider_env_vars_empty() {
+        assert!(CliBackend::aider().env_vars.is_empty());
+        assert!(CliBackend::aider_interactive().env_vars.is_empty());
     }
 }
